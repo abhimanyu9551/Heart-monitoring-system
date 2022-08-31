@@ -1,0 +1,50 @@
+const uint32_t READING_PERIOD = 5;  // one reading every 5 ms i.e. 200 Hz 
+const int MAX_READINGS = 600;           // 20 readings = 10 min
+
+int readings[MAX_READINGS];  // ring buffer
+uint8_t reading_index = 0;    // next available slot
+bool readings_full = false;  // did we fill the ring buffer?
+
+static void register_reading(int value) 
+{
+    readings[reading_index] = value;
+    if (++reading_index >= MAX_READINGS) 
+    {
+        readings_full = true;
+        reading_index = 0;
+    }
+}
+
+static void dump_readings() {
+    // If the buffer is full, then the next avaiable slot is the oldest
+    // reading in the buffer.
+    if (readings_full) 
+    {
+        for (int i = reading_index; i < MAX_READINGS; i++)
+            Serial.write(readings[i]);
+    }
+    for (int i = 0; i < reading_index; i++)
+        Serial.write(readings[i]);
+}
+
+void setup() {
+    Serial.begin(115200);
+}
+
+void loop() {
+    // Periodically take a reading.
+    static uint32_t last_reading_time;
+    if (millis() - last_reading_time >= READING_PERIOD) 
+    {
+        last_reading_time += READING_PERIOD;
+        register_reading(analogRead(A0));
+    }
+
+    // Dump the data on command.
+    if (Serial.read() == 't') 
+    {
+        dump_readings();
+        reading_index = 0;       // reset the buffer
+        readings_full = false;  // ditto
+    }
+}
